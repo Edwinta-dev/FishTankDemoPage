@@ -1,0 +1,16 @@
+{
+  "name": "pond-sitrep-dashboard",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Single-page read-only pond dashboard for the FYP Supabase RPC",
+  "scripts": {
+    "build": "tailwindcss -i ./src/input.css -o ./styles.css --minify",
+    "watch": "tailwindcss -i ./src/input.css -o ./styles.css --watch",
+    "start": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@fontsource-variable/schibsted-grotesk": "^5.2.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/cli": "^4.1.0"
+  }
+}
