@@ -19,7 +19,7 @@ Add `?demo=1` to the URL to preview the layout with generated data (clearly labe
 ## Configure
 
 Everything lives in `CONFIG` at the top of `app.js`: Supabase URL, publishable key, user id,
-refresh interval (60 s) and the target ranges for water temperature (20–28 °C) and pH (7.0–8.5).
+refresh interval (60 s), the experiment start time that the chart filters from (`historyStart`) and the target ranges for water temperature (20–28 °C) and pH (7.0–8.5).
 The target ranges are placeholders. Set them for your species.
 
 ## Design

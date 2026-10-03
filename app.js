@@ -6,6 +6,8 @@ const CONFIG = {
   publishableKey: 'sb_publishable_6ULJADr4CTiymQlKMIz4mg_BZ9C8iCG',
   userId: 455,
   refreshMs: 60_000,
+  // The chart only shows logs from this moment on. Set to null to show everything the RPC returns.
+  historyStart: '2026-10-02T21:00:00+08:00',
   // Target ranges used for the verdicts and the scale. Adjust to the species and tank you are keeping.
   targets: { tempC: [20, 28], ph: [7.0, 8.5] },
 };
@@ -41,6 +43,7 @@ const SGT = { timeZone: 'Asia/Singapore', hour12: false };
 const clock = (d = new Date()) => new Intl.DateTimeFormat('en-SG', { ...SGT, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(d);
 const stamp = (iso) => new Intl.DateTimeFormat('en-SG', { ...SGT, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const shortStamp = (iso) => new Intl.DateTimeFormat('en-SG', { ...SGT, day: 'numeric', month: 'short' }).format(new Date(iso));
+const axisTime = (iso) => new Intl.DateTimeFormat('en-SG', { ...SGT, weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const dayName = (iso, fallback) => (iso ? new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(iso)) : fallback);
 
 const position = (value, [lo, hi]) => `${Math.min(100, Math.max(0, ((value - lo) / (hi - lo)) * 100))}%`;
@@ -209,7 +212,13 @@ function renderOutlook(p) {
 function seriesFor(metric) {
   return (state.payload?.telemetry_history || [])
     .map((row) => ({ time: row?.time, value: num(row?.[metric]) }))
-    .filter((r) => r.time && r.value !== null);
+    .filter((r) => r.time && r.value !== null && new Date(r.time).getTime() >= historyStartMs())
+    .sort((a, b) => new Date(a.time) - new Date(b.time));
+}
+
+function historyStartMs() {
+  const t = CONFIG.historyStart ? new Date(CONFIG.historyStart).getTime() : NaN;
+  return Number.isFinite(t) ? t : -Infinity;
 }
 
 function renderChart() {
@@ -220,7 +229,7 @@ function renderChart() {
 
   if (!pts.length) {
     host.innerHTML = '';
-    readout.textContent = 'No history for this measurement yet.';
+    readout.textContent = CONFIG.historyStart ? `No logs for this measurement since ${stamp(CONFIG.historyStart)}.` : 'No history for this measurement yet.';
     $('history-note').textContent = '';
     return;
   }
@@ -242,19 +251,20 @@ function renderChart() {
 
   const ticks = [lo + pad, (lo + hi) / 2, hi - pad];
   const target = state.metric === 'tempC' ? CONFIG.targets.tempC : state.metric === 'ph' ? CONFIG.targets.ph : null;
-  const mid = pts[Math.floor(pts.length / 2)];
+  const axisStamp = t1 - t0 < 3 * 86400_000 ? axisTime : shortStamp;
+  const midTime = new Date((t0 + t1) / 2).toISOString();
   const last = coords.at(-1);
 
   host.innerHTML = `
-    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(meta.label)} over the past week, from ${esc(fmt(Math.min(...vals), meta.decimals))} to ${esc(fmt(Math.max(...vals), meta.decimals))} ${esc(meta.unit)}">
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(meta.label)} since the experiment started, from ${esc(fmt(Math.min(...vals), meta.decimals))} to ${esc(fmt(Math.max(...vals), meta.decimals))} ${esc(meta.unit)}">
       ${target ? `<rect x="${m.l}" width="${W - m.l - m.r}" y="${y(target[1])}" height="${y(target[0]) - y(target[1])}" fill="#1d3a32" fill-opacity="0.07"/>` : ''}
       ${ticks.map((v) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="#c3c9bb"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#566259">${esc(fmt(v, meta.decimals))}</text>`).join('')}
       <path d="${line}" fill="none" stroke="#18221e" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
       <line id="cursor" y1="${m.t}" y2="${H - m.b}" stroke="#18221e" stroke-opacity="0.35" visibility="hidden"/>
       <circle id="focus" r="5" fill="#e8a317" stroke="#18221e" stroke-width="1.5" cx="${last.cx}" cy="${last.cy}"/>
-      <text x="${m.l}" y="${H - 8}" font-size="12" fill="#566259">${esc(shortStamp(pts[0].time))}</text>
-      <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" font-size="12" text-anchor="middle" fill="#566259">${esc(shortStamp(mid.time))}</text>
-      <text x="${W - m.r}" y="${H - 8}" font-size="12" text-anchor="end" fill="#566259">${esc(shortStamp(pts.at(-1).time))}</text>
+      <text x="${m.l}" y="${H - 8}" font-size="12" fill="#566259">${esc(axisStamp(pts[0].time))}</text>
+      <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" font-size="12" text-anchor="middle" fill="#566259">${pts.length > 2 ? esc(axisStamp(midTime)) : ''}</text>
+      <text x="${W - m.r}" y="${H - 8}" font-size="12" text-anchor="end" fill="#566259">${pts.length > 1 ? esc(axisStamp(pts.at(-1).time)) : ''}</text>
       <rect id="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/>
     </svg>`;
 
@@ -279,24 +289,25 @@ function renderChart() {
 
   const prev = coords.at(-2);
   const dir = !prev ? '' : last.value > prev.value ? 'higher than' : last.value < prev.value ? 'lower than' : 'the same as';
+  const since = CONFIG.historyStart ? `${pts.length} ${pts.length === 1 ? 'log' : 'logs'} since ${stamp(CONFIG.historyStart)}. ` : '';
   $('history-note').textContent = prev
-    ? `${meta.label} is ${dir} the log before it. Hover or touch the chart to read earlier values.${target ? ' The shaded band is the target range.' : ''}`
-    : '';
+    ? `${since}${meta.label} is ${dir} the log before it. Hover or touch the chart to read earlier values.${target ? ' The shaded band is the target range.' : ''}`
+    : `${since}More logs are needed before a trend can be drawn.`;
 }
 
 /* ---------- demo data (only used with ?demo=1; shaped like the RPC payload) ---------- */
 
 function demoPayload() {
   const now = Date.now();
-  const history = Array.from({ length: 42 }, (_, i) => {
-    const t = new Date(now - (41 - i) * 4 * 3600_000);
+  const history = Array.from({ length: 168 }, (_, i) => {
+    const t = new Date(now - (167 - i) * 3600_000);
     const hour = (t.getUTCHours() + 8) % 24;
     const day = Math.sin(((hour - 9) / 24) * Math.PI * 2);
     return {
       time: t.toISOString(),
-      tempC: +(27.2 + day * 1.3 + Math.sin(i / 5) * 0.4).toFixed(2),
-      ph: +(7.6 + Math.sin(i / 7) * 0.25 - day * 0.1).toFixed(2),
-      tds: Math.round(284 + Math.sin(i / 4) * 14 + i * 0.6),
+      tempC: +(27.2 + day * 1.3 + Math.sin(i / 20) * 0.4).toFixed(2),
+      ph: +(7.6 + Math.sin(i / 28) * 0.25 - day * 0.1).toFixed(2),
+      tds: Math.round(284 + Math.sin(i / 16) * 14 + i * 0.15),
       lux: Math.max(0, Math.round(day * 24000 + (day > 0 ? 3000 : 0))),
     };
   });
