@@ -8,7 +8,7 @@
   <meta name="description" content="Live water temperature, pH, TDS and light for the pond, with local weather context." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d3a32'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23e8a317'/%3E%3C/svg%3E" />
   <link rel="preload" href="./fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
 </head>
 <body class="antialiased">
 
@@ -30,7 +30,7 @@
         <div class="lg:col-span-7">
           <h1 id="hero-title" class="text-base text-foam-dim">Water temperature</h1>
           <p class="mt-2 flex items-start font-extrabold leading-[0.82] tracking-[-0.055em]" style="font-size: clamp(6.5rem, 21vw, 15rem)">
-            <span id="temp-value">—</span><span class="mt-[0.08em] text-[0.38em] font-semibold tracking-normal text-koi">°C</span>
+            <span id="temp-value">—</span><span class="ml-[0.3em] mt-[0.08em] text-[0.38em] font-semibold tracking-normal text-koi">°C</span>
           </p>
           <p id="temp-verdict" class="mt-6 max-w-[34ch] text-xl leading-snug sm:text-2xl"></p>
         </div>
@@ -120,6 +120,6 @@
     </footer>
   </main>
 
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=3" defer></script>
 </body>
 </html>
